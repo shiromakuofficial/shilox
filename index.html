@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Cosmos_Global_Multi_2D</title>
+    <style>
+        body { text-align: center; background: #1a1a1a; color: #0f0; font-family: 'Courier New', monospace; margin: 0; }
+        canvas { background: #eee; display: block; margin: 0 auto; border: 5px solid #444; cursor: none; }
+        .info { background: rgba(0,0,0,0.8); padding: 10px; position: fixed; top: 0; left: 0; text-align: left; font-size: 12px; }
+        .controls { color: #ccc; font-size: 14px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <div>MY ID: <span id="my-id">...</span></div>
+        <div>CONNECTED: <span id="peer-count">0</span></div>
+        <div id="status">Lobby: Waiting for players...</div>
+    </div>
+    <h1>Cosmos P2P Metaverse v1.0</h1>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div class="controls">WASD or Arrows: Move | Space: Jump | 複数タブで開くと勝手に繋がるで！</div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // --- 1. ゲーム設定 ---
+        const gravity = 0.5;
+        const player = { x: 100, y: 100, w: 30, h: 30, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false };
+        const others = {}; // 接続中のプレイヤーたち
+        const connections = {}; // PeerJSのコネクション
+        const keys = {};
+
+        // --- 2. PeerJS 設定 (何人でも繋ぐ用) ---
+        const peer = new Peer(); // ID自動生成
+
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+            document.getElementById('status').innerText = "Status: Online (Auto-connecting...)";
+            // 本来はここでFirebase等から他人のIDを取得する
+            // 今回はデバッグ用にIDを手動入力せずとも、接続が来たものを全受けする仕組み
+        });
+
+        // 誰かが繋いできた時
+        peer.on('connection', (conn) => {
+            setupConnection(conn);
+        });
+
+        function setupConnection(conn) {
+            conn.on('open', () => {
+                connections[conn.peer] = conn;
+                updatePeerCount();
+                // 自分の情報を即座に送る
+                conn.send({ type: 'init', color: player.color });
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'init') {
+                    others[conn.peer] = { x: 0, y: 0, color: data.color };
+                } else {
+                    // 位置更新
+                    if (others[conn.peer]) {
+                        others[conn.peer].x = data.x;
+                        others[conn.peer].y = data.y;
+                    }
+                }
+            });
+
+            conn.on('close', () => {
+                delete others[conn.peer];
+                delete connections[conn.peer];
+                updatePeerCount();
+            });
+        }
+
+        function updatePeerCount() {
+            document.getElementById('peer-count').innerText = Object.keys(connections).length;
+        }
+
+        // --- 3. ループ & 物理 ---
+        window.addEventListener("keydown", (e) => keys[e.code] = true);
+        window.addEventListener("keyup", (e) => keys[e.code] = false);
+
+        function update() {
+            // 移動
+            if (keys["ArrowLeft"] || keys["KeyA"]) player.x -= 5;
+            if (keys["ArrowRight"] || keys["KeyD"]) player.x += 5;
+
+            // ジャンプ
+            if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) && !player.isJumping) {
+                player.dy = -12;
+                player.isJumping = true;
+            }
+
+            // 重力
+            player.dy += gravity;
+            player.y += player.dy;
+
+            // 地面
+            if (player.y > canvas.height - player.h) {
+                player.y = canvas.height - player.h;
+                player.dy = 0;
+                player.isJumping = false;
+            }
+
+            // 全員に自分の位置を送信 (ブロードキャスト)
+            Object.values(connections).forEach(conn => {
+                if (conn.open) conn.send({ x: player.x, y: player.y });
+            });
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 地面
+            ctx.fillStyle = "#444";
+            ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+
+            // 自分
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            ctx.strokeStyle = "#fff";
+            ctx.strokeRect(player.x, player.y, player.w, player.h);
+
+            // 他人
+            Object.values(others).forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 30, 30);
+            });
+        }
+
+        update();
+    </script>
+</body>
+</html>
