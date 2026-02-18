@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Cosmos_Global_Multi_2D - ID Join Edition</title>
+    <title>Cosmos_Global_Multi_2D - Invite Link</title>
     <link rel="icon" href="data:,">
     <style>
         body { text-align: center; background: #1a1a1a; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
@@ -16,7 +16,6 @@
         input, button { padding: 8px; font-family: inherit; margin: 2px; }
         button { cursor: pointer; background: #0f0; border: none; font-weight: bold; }
         .room-tag { background: #ff4081; color: #fff; padding: 2px 5px; }
-        .join-area { margin-top: 10px; border-top: 1px solid #444; padding-top: 10px; }
     </style>
 </head>
 <body>
@@ -31,7 +30,10 @@
     <div class="info">
         <div>SERVER: <span class="room-tag" id="room-display">Room 1</span></div>
         <div>NAME: <span id="display-name" style="color: #fff;">...</span></div>
-        <div style="cursor: pointer; color: yellow;" onclick="copyMyId()">MY ID (Click to Copy): <br><span id="my-id" style="font-size: 9px;">Initializing...</span></div>
+        <div style="cursor: pointer; color: yellow; border: 1px dashed yellow; padding: 5px; margin-top: 5px;" onclick="copyInviteUrl()">
+            🔗 招待URLをコピー (SNS用)
+        </div>
+        <div style="font-size: 9px; margin-top: 5px; color: #888;">MY ID: <span id="my-id">...</span></div>
         <div>CONN: <span id="peer-count">0</span> / 10</div>
     </div>
 
@@ -39,9 +41,7 @@
         <div style="font-weight: bold; border-bottom: 1px solid #00bcd4; margin-bottom: 5px;">DIRECT JOIN</div>
         <input type="text" id="target-peer-id" placeholder="友達のIDをコピペ" style="width: 150px; font-size: 9px; padding: 4px;">
         <button onclick="manualConnect()" style="width: 160px; font-size: 10px; background: #00bcd4;">このIDの部屋へ合流！</button>
-        
-        <div style="margin-top: 10px; font-weight: bold; border-bottom: 1px solid #0f0;">LOCAL FRIENDS</div>
-        <div id="friend-list">登録なし</div>
+        <div style="margin-top: 10px; color: #aaa; font-size: 9px;">※招待URLを踏んで来た場合は自動で繋がるでｗ</div>
     </div>
 
     <canvas id="gameCanvas" width="800" height="400"></canvas>
@@ -57,9 +57,9 @@
         const ctx = canvas.getContext("2d");
         
         let myName = localStorage.getItem("cosmos_name") || "";
-        let friends = JSON.parse(localStorage.getItem("cosmos_friends") || "[]");
         const urlParams = new URLSearchParams(window.location.search);
         let roomNo = parseInt(urlParams.get('room')) || 1;
+        let autoJoinId = urlParams.get('join'); // URLの ?join=... を取得
 
         const player = { x: 100, y: 100, w: 30, h: 30, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false, msg: "", name: myName };
         const others = {}; 
@@ -86,41 +86,47 @@
                 document.getElementById('my-id').innerText = id;
                 document.getElementById("display-name").innerText = myName;
                 document.getElementById("room-display").innerText = `Room ${roomNo}`;
+                
+                // 通常の近隣接続
                 autoConnect(attemptIdx);
-                updateFriendList();
+                
+                // 【新機能】招待URLから来た場合の自動接続
+                if (autoJoinId && autoJoinId !== id) {
+                    addChatLog(`[System] 招待URL: ${autoJoinId} に自動接続中...`);
+                    setupConnection(peer.connect(autoJoinId));
+                    autoJoinId = null; // 1回だけ実行
+                }
             });
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') { peer.destroy(); startMetaverse(attemptIdx + 1); }
-                else if (err.type === 'peer-unavailable') { console.log("Peer busy/offline"); }
+                else if (err.type === 'peer-unavailable') { console.log("Peer offline"); }
             });
 
             peer.on('connection', (conn) => setupConnection(conn));
         }
 
-        // --- ID指定接続機能 ---
-        function manualConnect() {
-            const targetId = document.getElementById('target-peer-id').value.trim();
-            if (!targetId) return alert("IDを入れてクレメンス！");
-            if (targetId === peer.id) return alert("それは自分自身のIDやｗ");
-            
-            // 相手のIDから「どのルームか」を推測して移動するか、直接繋ぐ
-            // 今回は直接繋いで、相手のルーム情報を教えてもらう
-            const conn = peer.connect(targetId);
-            setupConnection(conn);
-            addChatLog(`[System] ID:${targetId} に接続を試み中...`);
+        // 招待URLを生成してコピー
+        function copyInviteUrl() {
+            const myId = document.getElementById('my-id').innerText;
+            if (myId === "...") return alert("まだIDが発行されてへんで！");
+            const inviteUrl = `${window.location.origin}${window.location.pathname}?join=${myId}`;
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+                alert("【招待URLコピー完了】\nこれを友達に送れば、この部屋に即合流できるでｗ\n" + inviteUrl);
+            });
         }
 
-        function copyMyId() {
-            const idText = document.getElementById('my-id').innerText;
-            navigator.clipboard.writeText(idText).then(() => alert("自分のIDをコピーしたで！友達に送ってやｗ"));
+        function manualConnect() {
+            const targetId = document.getElementById('target-peer-id').value.trim();
+            if (!targetId || targetId === peer.id) return;
+            setupConnection(peer.connect(targetId));
+            addChatLog(`[System] ${targetId} へ接続試行中...`);
         }
 
         function autoConnect(myIdx) {
             for (let i = 0; i < 10; i++) {
                 if (i === myIdx) continue;
-                const targetId = `cosmos-room-${roomNo}-${i}`;
-                setupConnection(peer.connect(targetId));
+                setupConnection(peer.connect(`cosmos-room-${roomNo}-${i}`));
             }
         }
 
@@ -195,7 +201,6 @@
         }
 
         function updatePeerCount() { document.getElementById('peer-count').innerText = Object.keys(connections).length; }
-        function updateFriendList() { /* 省略（localStorageから読み込み表示） */ }
         update();
     </script>
 </body>
