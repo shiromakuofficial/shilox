@@ -2,37 +2,41 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Cosmos_Global_Multi_2D</title>
-    <link rel="icon" href="data:,"> <style>
+    <title>Cosmos_Global_Multi_2D - P2P Metaverse</title>
+    <link rel="icon" href="data:,">
+    <style>
         body { text-align: center; background: #1a1a1a; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
-        canvas { background: #eee; display: block; margin: 0 auto; border: 5px solid #444; }
-        .info { background: rgba(0,0,0,0.8); padding: 10px; position: fixed; top: 0; left: 0; text-align: left; font-size: 12px; z-index: 10; }
-        .controls { color: #ccc; font-size: 14px; margin-top: 5px; }
-        .connection-panel { margin-top: 15px; background: #333; padding: 10px; display: inline-block; border-radius: 5px; }
-        input { padding: 5px; border: none; border-radius: 3px; }
-        button { padding: 5px 15px; background: #0f0; color: #000; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0c0; }
+        canvas { background: #eee; display: block; margin: 0 auto; border: 5px solid #444; box-shadow: 0 0 20px rgba(0,255,0,0.2); }
+        .info { background: rgba(0,0,0,0.9); padding: 15px; position: fixed; top: 0; left: 0; text-align: left; font-size: 13px; z-index: 10; border-bottom-right-radius: 10px; border: 1px solid #0f0; }
+        .server-status { color: #ffeb3b; font-weight: bold; margin-bottom: 5px; }
+        .controls { color: #ccc; font-size: 14px; margin-top: 10px; }
+        .connection-panel { margin-top: 15px; background: #333; padding: 10px; display: inline-block; border-radius: 5px; border: 1px solid #666; }
+        input { padding: 8px; border: none; border-radius: 3px; width: 250px; }
+        button { padding: 8px 15px; background: #0f0; color: #000; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0c0; transform: scale(1.05); }
+        .room-tag { background: #00bcd4; color: #000; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="info">
-        <div>MY ID: <span id="my-id" style="color: #fff; font-weight: bold;">Connecting...</span></div>
-        <div>CONNECTED: <span id="peer-count">0</span></div>
+        <div class="server-status">SERVER: <span class="room-tag" id="room-display">Room 1</span></div>
+        <div>MY ID: <span id="my-id" style="color: #fff;">Connecting...</span></div>
+        <div>CONNECTED: <span id="peer-count" style="color: #ff4081; font-size: 18px;">0</span> / 10</div>
         <div id="status">Status: Initializing...</div>
     </div>
 
-    <h1>Cosmos P2P Metaverse v1.0</h1>
+    <h1 style="margin-top: 20px;">Cosmos P2P Metaverse v1.1</h1>
     
     <canvas id="gameCanvas" width="800" height="400"></canvas>
 
     <div class="connection-panel">
-        <input type="text" id="dest-id" placeholder="相手のIDをコピペしてな！">
-        <button onclick="connectToPeer()">相手に接続！</button>
+        <input type="text" id="dest-id" placeholder="友達のIDをコピペしてな！">
+        <button onclick="connectToPeer()">同じ部屋の友達と合流！</button>
     </div>
 
     <div class="controls">
         WASD/Arrows: Move | Space: Jump<br>
-        自分のIDを友達に教えるか、相手のIDを入れて「接続」を押してや！
+        10人超えたら自動で次の鯖に飛ばすで！ 5月30日のセール終了まで開発爆走中！
     </div>
 
     <script src="./peerjs.min.js"></script>
@@ -41,14 +45,19 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // --- 1. ゲーム設定 ---
+        // --- 1. サーバー（ルーム）管理ロジック ---
+        const urlParams = new URLSearchParams(window.location.search);
+        let roomNo = parseInt(urlParams.get('room')) || 1;
+        document.getElementById('room-display').innerText = `Room ${roomNo}`;
+
+        // --- 2. ゲーム設定 ---
         const gravity = 0.5;
         const player = { x: 100, y: 100, w: 30, h: 30, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false };
         const others = {}; 
         const connections = {}; 
         const keys = {};
 
-        // --- 2. PeerJS 設定 ---
+        // --- 3. PeerJS 通信 ---
         const peer = new Peer({
             debug: 1,
             config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] }
@@ -56,30 +65,27 @@
 
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            document.getElementById('status').innerText = "Status: Online (Waiting for connection)";
-            console.log("MY ID: " + id);
+            document.getElementById('status').innerText = "Status: Online (鯖にログイン成功)";
         });
 
-        // 誰かが繋いできた時
         peer.on('connection', (conn) => {
             setupConnection(conn);
         });
 
-        // 自分から繋ぎにいく時の関数
         function connectToPeer() {
             const destId = document.getElementById('dest-id').value;
             if (!destId) return alert("IDを入れてクレメンス！");
+            if (Object.keys(connections).length >= 10) return alert("この部屋はもう満員や！");
             
             const conn = peer.connect(destId);
             setupConnection(conn);
-            document.getElementById('status').innerText = `Connecting to: ${destId}...`;
         }
 
         function setupConnection(conn) {
             conn.on('open', () => {
                 connections[conn.peer] = conn;
                 updatePeerCount();
-                document.getElementById('status').innerText = "Status: Connected!";
+                document.getElementById('status').innerText = "Status: プレイヤーが合流したで！";
                 conn.send({ type: 'init', color: player.color });
             });
 
@@ -98,15 +104,24 @@
                 delete others[conn.peer];
                 delete connections[conn.peer];
                 updatePeerCount();
-                document.getElementById('status').innerText = "Status: Disconnected";
             });
         }
 
         function updatePeerCount() {
-            document.getElementById('peer-count').innerText = Object.keys(connections).length;
+            const count = Object.keys(connections).length;
+            document.getElementById('peer-count').innerText = count;
+
+            // --- 4. 自動鯖移動ロジック ---
+            if (count >= 10) {
+                document.getElementById('status').innerText = "満員御礼！次の鯖へ転生するで...";
+                setTimeout(() => {
+                    const nextRoom = roomNo + 1;
+                    window.location.href = `?room=${nextRoom}`;
+                }, 2000);
+            }
         }
 
-        // --- 3. ループ & 物理 ---
+        // --- 5. ゲームループ & 描画 ---
         window.addEventListener("keydown", (e) => keys[e.code] = true);
         window.addEventListener("keyup", (e) => keys[e.code] = false);
 
@@ -121,13 +136,14 @@
             player.dy += gravity;
             player.y += player.dy;
 
+            // 画面外（下）判定
             if (player.y > canvas.height - player.h) {
                 player.y = canvas.height - player.h;
                 player.dy = 0;
                 player.isJumping = false;
             }
 
-            // 位置同期
+            // 全プレイヤーに位置を同期
             Object.values(connections).forEach(conn => {
                 if (conn.open) conn.send({ x: player.x, y: player.y });
             });
@@ -138,6 +154,8 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 地面
             ctx.fillStyle = "#444";
             ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
             
@@ -150,7 +168,9 @@
             // 他人
             Object.values(others).forEach(p => {
                 ctx.fillStyle = p.color;
+                ctx.globalAlpha = 0.8;
                 ctx.fillRect(p.x, p.y, 30, 30);
+                ctx.globalAlpha = 1.0;
             });
         }
 
