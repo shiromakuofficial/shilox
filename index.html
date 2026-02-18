@@ -2,24 +2,17 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Cosmos_Global_Multi_2D - Full Edition</title>
+    <title>Cosmos_Global_Multi_2D - Auto-Matching</title>
     <link rel="icon" href="data:,">
     <style>
         body { text-align: center; background: #1a1a1a; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
         canvas { background: #eee; display: block; margin: 0 auto; border: 5px solid #444; }
-        
-        /* UIパーツ */
         .info { background: rgba(0,0,0,0.9); padding: 10px; position: fixed; top: 0; left: 0; text-align: left; font-size: 12px; z-index: 10; border: 1px solid #0f0; }
         .friend-panel { position: fixed; top: 10px; right: 10px; width: 150px; background: rgba(0,0,0,0.8); border: 1px solid #00bcd4; padding: 10px; font-size: 11px; color: #00bcd4; text-align: left; }
-        
-        /* ログイン画面 */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        
-        /* チャット */
         #chat-box { position: fixed; bottom: 10px; left: 10px; width: 300px; height: 150px; background: rgba(0,0,0,0.7); color: white; text-align: left; padding: 10px; border-radius: 5px; font-size: 12px; display: flex; flex-direction: column; }
         #chat-log { flex-grow: 1; overflow-y: auto; margin-bottom: 5px; }
-        #chat-input { background: #222; border: 1px solid #0f0; color: #0f0; padding: 5px; }
-        
+        #chat-input { background: #222; border: 1px solid #0f0; color: #0f0; padding: 5px; outline: none; }
         input, button { padding: 8px; font-family: inherit; }
         button { cursor: pointer; background: #0f0; border: none; font-weight: bold; }
         .room-tag { background: #ff4081; color: #fff; padding: 2px 5px; }
@@ -37,8 +30,9 @@
     <div class="info">
         <div>SERVER: <span class="room-tag" id="room-display">Room 1</span></div>
         <div>NAME: <span id="display-name" style="color: #fff;">...</span></div>
-        <div>ID: <span id="my-id" style="font-size: 10px;">Connecting...</span></div>
+        <div>MY ID: <span id="my-id" style="font-size: 10px; color: yellow;">Initializing...</span></div>
         <div>CONN: <span id="peer-count">0</span> / 10</div>
+        <div id="status" style="font-size: 10px; color: #aaa;">Searching peers...</div>
     </div>
 
     <div class="friend-panel">
@@ -58,7 +52,6 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         
-        // --- データ管理 ---
         let myName = localStorage.getItem("cosmos_name") || "";
         let friends = JSON.parse(localStorage.getItem("cosmos_friends") || "[]");
         const urlParams = new URLSearchParams(window.location.search);
@@ -69,10 +62,9 @@
         const connections = {}; 
         const keys = {};
 
-        // --- ログイン処理 ---
         if (myName) {
             document.getElementById("login-screen").style.display = "none";
-            initPeer();
+            startMetaverse(0);
         }
 
         function login() {
@@ -82,31 +74,55 @@
                 localStorage.setItem("cosmos_name", myName);
                 player.name = myName;
                 document.getElementById("login-screen").style.display = "none";
-                initPeer();
+                startMetaverse(0);
             }
         }
 
-        // --- PeerJS通信 ---
         let peer;
-        function initPeer() {
+        function startMetaverse(attemptIdx) {
+            if (attemptIdx >= 10) {
+                alert("この部屋は満員や！次の部屋へ行ってクレメンス。");
+                window.location.href = `?room=${roomNo + 1}`;
+                return;
+            }
+
             document.getElementById("display-name").innerText = myName;
             document.getElementById("room-display").innerText = `Room ${roomNo}`;
             
-            peer = new Peer(); // 固定IDにしたい場合は Peer(myName + roomNo) とかもアリ
+            // IDを固定する (例: cosmos-room-1-0)
+            const fixedId = `cosmos-room-${roomNo}-${attemptIdx}`;
+            peer = new Peer(fixedId);
 
             peer.on('open', (id) => {
                 document.getElementById('my-id').innerText = id;
+                document.getElementById('status').innerText = "Logged in. Connecting to others...";
+                autoConnect(attemptIdx);
                 updateFriendList();
             });
 
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    // IDが使われていたら次の番号を試す（これがオートスケーリングの肝）
+                    startMetaverse(attemptIdx + 1);
+                }
+            });
+
             peer.on('connection', (conn) => setupConnection(conn));
-            
-            // 友達のIDがあれば自動接続を試みる（簡易実装）
-            // ※実際はシグナリングが必要だが、ここでは手動接続用に入力欄を残す
+        }
+
+        // 同じ部屋の他のID（0〜9）に自分から繋ぎに行く
+        function autoConnect(myIdx) {
+            for (let i = 0; i < 10; i++) {
+                if (i === myIdx) continue;
+                const targetId = `cosmos-room-${roomNo}-${i}`;
+                const conn = peer.connect(targetId);
+                setupConnection(conn);
+            }
         }
 
         function setupConnection(conn) {
             conn.on('open', () => {
+                if (connections[conn.peer]) return;
                 connections[conn.peer] = conn;
                 updatePeerCount();
                 conn.send({ type: 'init', name: player.name, color: player.color });
@@ -115,7 +131,7 @@
             conn.on('data', (data) => {
                 if (data.type === 'init') {
                     others[conn.peer] = { x: 0, y: 0, color: data.color, name: data.name, msg: "", isFriend: isFriend(conn.peer) };
-                    addChatLog(`[System] ${data.name}が入室したで！`);
+                    addChatLog(`[System] ${data.name}が来たで！`);
                 } else if (data.type === 'chat') {
                     addChatLog(`${others[conn.peer]?.name || '???'}: ${data.msg}`);
                     if (others[conn.peer]) others[conn.peer].msg = data.msg;
@@ -128,56 +144,35 @@
             });
 
             conn.on('close', () => {
-                addChatLog(`[System] ${others[conn.peer]?.name || '誰か'}が去っていったわ…`);
+                if (others[conn.peer]) addChatLog(`[System] ${others[conn.peer].name}が落ちたわ。`);
                 delete others[conn.peer];
                 delete connections[conn.peer];
                 updatePeerCount();
             });
         }
 
-        // --- フレンド機能 ---
-        function toggleFriend(peerId) {
-            const target = others[peerId];
-            if (!target) return;
-
-            if (isFriend(peerId)) {
-                friends = friends.filter(f => f.id !== peerId);
-            } else {
-                friends.push({ id: peerId, name: target.name });
-            }
-            localStorage.setItem("cosmos_friends", JSON.stringify(friends));
-            if (others[peerId]) others[peerId].isFriend = isFriend(peerId);
-            updateFriendList();
-        }
-
-        function isFriend(peerId) {
-            return friends.some(f => f.id === peerId);
-        }
-
+        function isFriend(peerId) { return friends.some(f => f.id === peerId); }
         function updateFriendList() {
             const list = document.getElementById("friend-list");
             list.innerHTML = friends.length ? friends.map(f => `<div>👤 ${f.name}</div>`).join('') : "登録なし";
         }
 
-        // --- チャット・操作 ---
         const chatInput = document.getElementById("chat-input");
         const chatLog = document.getElementById("chat-log");
+        function addChatLog(t) {
+            const d = document.createElement("div"); d.innerText = t;
+            chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
+        }
 
         chatInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter" && chatInput.value !== "") {
                 const msg = chatInput.value;
                 addChatLog(`Me: ${msg}`);
                 player.msg = msg;
-                Object.values(connections).forEach(c => c.send({ type: 'chat', msg: msg }));
-                chatInput.value = "";
-                chatInput.blur();
+                Object.values(connections).forEach(c => c.open && c.send({ type: 'chat', msg: msg }));
+                chatInput.value = ""; chatInput.blur();
             }
         });
-
-        function addChatLog(t) {
-            const d = document.createElement("div"); d.innerText = t;
-            chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
-        }
 
         window.addEventListener("keydown", (e) => {
             if (document.activeElement !== chatInput) keys[e.code] = true;
@@ -185,21 +180,6 @@
         });
         window.addEventListener("keyup", (e) => keys[e.code] = false);
 
-        // キャラクをリックしてフレンド登録
-        canvas.addEventListener("mousedown", (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            Object.keys(others).forEach(id => {
-                const p = others[id];
-                if (mouseX > p.x && mouseX < p.x + 30 && mouseY > p.y && mouseY < p.y + 30) {
-                    toggleFriend(id);
-                }
-            });
-        });
-
-        // --- ループ ---
         function update() {
             if (keys["ArrowLeft"] || keys["KeyA"]) player.x -= 5;
             if (keys["ArrowRight"] || keys["KeyD"]) player.x += 5;
@@ -211,30 +191,23 @@
 
             Object.values(connections).forEach(c => c.open && c.send({ x: player.x, y: player.y }));
             
-            // 描画
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#444"; ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
-            
             drawP(player.x, player.y, player.color, player.name, player.msg, true);
-            Object.values(others).forEach(p => drawP(p.x, p.y, p.color, p.name, p.msg, false, p.isFriend));
-            
+            Object.values(others).forEach(p => drawP(p.x, p.y, p.color, p.name, p.msg, false));
             requestAnimationFrame(update);
         }
 
-        function drawP(x, y, col, name, msg, isMe, isF) {
+        function drawP(x, y, col, name, msg, isMe) {
             ctx.fillStyle = col; ctx.fillRect(x, y, 30, 30);
             if (isMe) { ctx.strokeStyle = "#fff"; ctx.strokeRect(x, y, 30, 30); }
-            if (isF) { ctx.strokeStyle = "#00bcd4"; ctx.lineWidth = 3; ctx.strokeRect(x-2, y-2, 34, 34); ctx.lineWidth = 1; }
-            
             ctx.fillStyle = "white"; ctx.font = "10px Arial";
             ctx.fillText(name, x, y - 20);
             if (msg) { ctx.fillStyle = "#0f0"; ctx.fillText(msg, x, y - 5); }
         }
 
         function updatePeerCount() {
-            const count = Object.keys(connections).length;
-            document.getElementById('peer-count').innerText = count;
-            if (count >= 10) window.location.href = `?room=${roomNo + 1}`;
+            document.getElementById('peer-count').innerText = Object.keys(connections).length;
         }
 
         update();
