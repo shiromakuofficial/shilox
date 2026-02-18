@@ -8,19 +8,35 @@
         canvas { background: #eee; display: block; margin: 0 auto; border: 5px solid #444; }
         .info { background: rgba(0,0,0,0.8); padding: 10px; position: fixed; top: 0; left: 0; text-align: left; font-size: 12px; z-index: 10; }
         .controls { color: #ccc; font-size: 14px; margin-top: 5px; }
+        .connection-panel { margin-top: 15px; background: #333; padding: 10px; display: inline-block; border-radius: 5px; }
+        input { padding: 5px; border: none; border-radius: 3px; }
+        button { padding: 5px 15px; background: #0f0; color: #000; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0c0; }
     </style>
 </head>
 <body>
     <div class="info">
-        <div>MY ID: <span id="my-id">Connecting...</span></div>
+        <div>MY ID: <span id="my-id" style="color: #fff; font-weight: bold;">Connecting...</span></div>
         <div>CONNECTED: <span id="peer-count">0</span></div>
         <div id="status">Status: Initializing...</div>
     </div>
-    <h1>Cosmos P2P Metaverse v1.0</h1>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
-    <div class="controls">WASD/Arrows: Move | Space: Jump | https://shilox.xyz を複数開くと繋がるで！</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <h1>Cosmos P2P Metaverse v1.0</h1>
+    
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+    <div class="connection-panel">
+        <input type="text" id="dest-id" placeholder="相手のIDをコピペしてな！">
+        <button onclick="connectToPeer()">相手に接続！</button>
+    </div>
+
+    <div class="controls">
+        WASD/Arrows: Move | Space: Jump<br>
+        自分のIDを友達に教えるか、相手のIDを入れて「接続」を押してや！
+    </div>
+
+    <script src="./peerjs.min.js"></script>
+
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
@@ -32,9 +48,7 @@
         const connections = {}; 
         const keys = {};
 
-        // --- 2. PeerJS 設定 (shilox.xyz 専用ロビー) ---
-        // IDを固定することで、お互いを見つけやすくする(簡易ロビー機能)
-        const myRoomId = "shilox-lobby-room-1"; 
+        // --- 2. PeerJS 設定 ---
         const peer = new Peer({
             debug: 1,
             config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] }
@@ -42,22 +56,30 @@
 
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            document.getElementById('status').innerText = "Status: Online. Hunting for peers...";
-            
-            // 誰かいるか探して繋ぎにいく（簡易的なオートマッチ）
-            // ※本来はシグナリングサーバが必要やけど、今回はコンソールでIDを共有するか、
-            //   自分でもう一つタブを開いて、そのIDに connect() するのが基本や。
-            console.log("君のIDを友達に教えるんや: " + id);
+            document.getElementById('status').innerText = "Status: Online (Waiting for connection)";
+            console.log("MY ID: " + id);
         });
 
+        // 誰かが繋いできた時
         peer.on('connection', (conn) => {
             setupConnection(conn);
         });
+
+        // 自分から繋ぎにいく時の関数
+        function connectToPeer() {
+            const destId = document.getElementById('dest-id').value;
+            if (!destId) return alert("IDを入れてクレメンス！");
+            
+            const conn = peer.connect(destId);
+            setupConnection(conn);
+            document.getElementById('status').innerText = `Connecting to: ${destId}...`;
+        }
 
         function setupConnection(conn) {
             conn.on('open', () => {
                 connections[conn.peer] = conn;
                 updatePeerCount();
+                document.getElementById('status').innerText = "Status: Connected!";
                 conn.send({ type: 'init', color: player.color });
             });
 
@@ -76,6 +98,7 @@
                 delete others[conn.peer];
                 delete connections[conn.peer];
                 updatePeerCount();
+                document.getElementById('status').innerText = "Status: Disconnected";
             });
         }
 
@@ -104,7 +127,7 @@
                 player.isJumping = false;
             }
 
-            // 同期送信
+            // 位置同期
             Object.values(connections).forEach(conn => {
                 if (conn.open) conn.send({ x: player.x, y: player.y });
             });
@@ -121,6 +144,8 @@
             // 自分
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.w, player.h);
+            ctx.strokeStyle = "#fff";
+            ctx.strokeRect(player.x, player.y, player.w, player.h);
             
             // 他人
             Object.values(others).forEach(p => {
