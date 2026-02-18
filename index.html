@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Cosmos_Global_Multi_2D - Auto-Matching</title>
+    <title>Cosmos_Global_Multi_2D - Fixed</title>
     <link rel="icon" href="data:,">
     <style>
         body { text-align: center; background: #1a1a1a; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
@@ -62,10 +62,13 @@
         const connections = {}; 
         const keys = {};
 
-        if (myName) {
-            document.getElementById("login-screen").style.display = "none";
-            startMetaverse(0);
-        }
+        // ページ読み込み時にログイン済みなら開始
+        window.onload = () => {
+            if (myName) {
+                document.getElementById("login-screen").style.display = "none";
+                startMetaverse(0);
+            }
+        };
 
         function login() {
             const input = document.getElementById("user-name-input").value;
@@ -78,10 +81,11 @@
             }
         }
 
-        let peer;
+        let peer = null; // 初期値はnull
+
         function startMetaverse(attemptIdx) {
             if (attemptIdx >= 10) {
-                alert("この部屋は満員や！次の部屋へ行ってクレメンス。");
+                alert("この部屋は満員や！次の部屋へ誘導するで。");
                 window.location.href = `?room=${roomNo + 1}`;
                 return;
             }
@@ -89,29 +93,33 @@
             document.getElementById("display-name").innerText = myName;
             document.getElementById("room-display").innerText = `Room ${roomNo}`;
             
-            // IDを固定する (例: cosmos-room-1-0)
             const fixedId = `cosmos-room-${roomNo}-${attemptIdx}`;
+            
+            // Peerオブジェクトを生成
             peer = new Peer(fixedId);
 
             peer.on('open', (id) => {
                 document.getElementById('my-id').innerText = id;
-                document.getElementById('status').innerText = "Logged in. Connecting to others...";
+                document.getElementById('status').innerText = "Logged in. Searching others...";
+                // Openイベントの中で実行することで initialization エラーを回避
                 autoConnect(attemptIdx);
                 updateFriendList();
             });
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // IDが使われていたら次の番号を試す（これがオートスケーリングの肝）
+                    peer.destroy(); // 古いインスタンスを破棄して次へ
                     startMetaverse(attemptIdx + 1);
+                } else {
+                    console.error("PeerJS Error:", err);
                 }
             });
 
             peer.on('connection', (conn) => setupConnection(conn));
         }
 
-        // 同じ部屋の他のID（0〜9）に自分から繋ぎに行く
         function autoConnect(myIdx) {
+            if (!peer) return; // 安全策
             for (let i = 0; i < 10; i++) {
                 if (i === myIdx) continue;
                 const targetId = `cosmos-room-${roomNo}-${i}`;
@@ -130,8 +138,8 @@
 
             conn.on('data', (data) => {
                 if (data.type === 'init') {
-                    others[conn.peer] = { x: 0, y: 0, color: data.color, name: data.name, msg: "", isFriend: isFriend(conn.peer) };
-                    addChatLog(`[System] ${data.name}が来たで！`);
+                    others[conn.peer] = { x: 0, y: 0, color: data.color, name: data.name, msg: "" };
+                    addChatLog(`[System] ${data.name}がログインしたで！`);
                 } else if (data.type === 'chat') {
                     addChatLog(`${others[conn.peer]?.name || '???'}: ${data.msg}`);
                     if (others[conn.peer]) others[conn.peer].msg = data.msg;
@@ -144,19 +152,14 @@
             });
 
             conn.on('close', () => {
-                if (others[conn.peer]) addChatLog(`[System] ${others[conn.peer].name}が落ちたわ。`);
+                if (others[conn.peer]) addChatLog(`[System] ${others[conn.peer].name}がログアウトしたわ。`);
                 delete others[conn.peer];
                 delete connections[conn.peer];
                 updatePeerCount();
             });
         }
 
-        function isFriend(peerId) { return friends.some(f => f.id === peerId); }
-        function updateFriendList() {
-            const list = document.getElementById("friend-list");
-            list.innerHTML = friends.length ? friends.map(f => `<div>👤 ${f.name}</div>`).join('') : "登録なし";
-        }
-
+        // --- 以下描画・操作系 ---
         const chatInput = document.getElementById("chat-input");
         const chatLog = document.getElementById("chat-log");
         function addChatLog(t) {
@@ -208,6 +211,11 @@
 
         function updatePeerCount() {
             document.getElementById('peer-count').innerText = Object.keys(connections).length;
+        }
+
+        function updateFriendList() {
+            const list = document.getElementById("friend-list");
+            list.innerHTML = friends.length ? friends.map(f => `<div>👤 ${f.name}</div>`).join('') : "登録なし";
         }
 
         update();
