@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Shilox_Global_Multi_2D - Builder</title>
+    <title>Shilox_Global_Multi_2D - Wide World</title>
     <link rel="icon" href="data:,">
     <style>
         body { text-align: center; background: #0a0a0a; color: #00bcd4; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
@@ -33,13 +33,12 @@
         <div onclick="copyInviteUrl()" style="margin-top:8px; border:1px dashed #ffeb3b; padding:8px; cursor:pointer; color:#ffeb3b;">🔗 招待URLをコピー</div>
         <div class="controls-hint">
             [操作] WASD:移動 / Space:跳躍<br>
-            左クリック:ブロック配置<br>
-            右クリック:削除
+            左クリック:ブロック配置 / 右クリック:削除
         </div>
         <div style="font-size: 9px; margin-top: 5px; color: #555;">ID: <span id="my-id">...</span></div>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <canvas id="gameCanvas" width="800" height="450"></canvas>
 
     <div id="chat-box">
         <div id="chat-log"></div>
@@ -48,13 +47,7 @@
 
     <script src="./peerjs.min.js"></script>
     <script>
-        const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm",
-            "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう",
-            "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール",
-            "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h",
-            "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生",
-            "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ",
-            "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"]; // 簡略化
+        const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm", "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう", "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール", "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h", "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生", "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ", "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"];
         function filterText(text) {
             let f = text;
             NG_WORDS.forEach(w => f = f.replace(new RegExp(w, "g"), "*".repeat(w.length)));
@@ -63,14 +56,19 @@
 
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const GRID_SIZE = 40; // ブロックのサイズ
+        const GRID_SIZE = 40;
+
+        // --- 🌍 ステージ設定 ---
+        const WORLD_WIDTH = 3200;  // 横幅4倍
+        const WORLD_HEIGHT = 1200; // 縦幅3倍
+        const camera = { x: 0, y: 0 };
 
         let myName = localStorage.getItem("shilox_name") || "";
-        const player = { x: 400, y: 300, w: 30, h: 30, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false, msg: "", name: myName };
+        const player = { x: 400, y: WORLD_HEIGHT - 100, w: 30, h: 30, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false, msg: "", name: myName };
         const others = {}; 
         const connections = {}; 
         const keys = {};
-        let blocks = {}; // "x,y": color 形式で保存
+        let blocks = {};
 
         window.onload = () => { if (myName) { document.getElementById("login-screen").style.display = "none"; startShiloxMetaverse(0); } };
 
@@ -104,7 +102,6 @@
             conn.on('data', (data) => {
                 if (data.type === 'init') {
                     others[conn.peer] = { x: 400, y: 300, color: data.color, name: filterText(data.name), msg: "" };
-                    // 相手が持っているブロック情報と統合
                     Object.assign(blocks, data.blocks);
                 } else if (data.type === 'chat') {
                     const m = filterText(data.msg);
@@ -120,29 +117,28 @@
             conn.on('close', () => { delete others[conn.peer]; delete connections[conn.peer]; });
         }
 
-        // --- 🧱 ブロック配置処理 ---
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            // カメラ位置を考慮してブロックを配置
+            const mouseX = e.clientX - rect.left + camera.x;
+            const mouseY = e.clientY - rect.top + camera.y;
             const gridX = Math.floor(mouseX / GRID_SIZE) * GRID_SIZE;
             const gridY = Math.floor(mouseY / GRID_SIZE) * GRID_SIZE;
             const pos = `${gridX},${gridY}`;
 
-            if (e.button === 0 && !e.shiftKey) { // 左クリック: 追加
+            if (e.button === 0 && !e.shiftKey) { 
                 const color = "#444";
                 blocks[pos] = color;
                 broadcast({ type: 'block', action: 'add', pos: pos, color: color });
-            } else { // 右クリック or Shift+クリック: 削除
+            } else { 
                 delete blocks[pos];
                 broadcast({ type: 'block', action: 'remove', pos: pos });
             }
         });
-        canvas.oncontextmenu = (e) => e.preventDefault(); // 右クリックメニュー禁止
+        canvas.oncontextmenu = (e) => e.preventDefault();
 
         function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
 
-        // --- 🏃 移動と当たり判定 ---
         function update() {
             if (keys["ArrowLeft"] || keys["KeyA"]) player.x -= 5;
             if (keys["ArrowRight"] || keys["KeyD"]) player.x += 5;
@@ -151,10 +147,14 @@
             player.dy += 0.5;
             player.y += player.dy;
 
-            // 床（地面）
-            if (player.y > canvas.height - 30 - 10) { player.y = canvas.height - 30 - 10; player.dy = 0; player.isJumping = false; }
+            // 地面判定（世界の底）
+            if (player.y > WORLD_HEIGHT - 40) { player.y = WORLD_HEIGHT - 40; player.dy = 0; player.isJumping = false; }
+            
+            // 世界の境界制限
+            if (player.x < 0) player.x = 0;
+            if (player.x > WORLD_WIDTH - 30) player.x = WORLD_WIDTH - 30;
 
-            // ブロックとの当たり判定（簡易版）
+            // ブロック当たり判定
             Object.keys(blocks).forEach(pos => {
                 const [bx, by] = pos.split(',').map(Number);
                 if (player.x + 25 > bx && player.x + 5 < bx + GRID_SIZE &&
@@ -163,6 +163,15 @@
                 }
             });
 
+            // --- 🎥 カメラの更新 ---
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+            // カメラが世界の端を超えないように制限
+            if (camera.x < 0) camera.x = 0;
+            if (camera.y < 0) camera.y = 0;
+            if (camera.x > WORLD_WIDTH - canvas.width) camera.x = WORLD_WIDTH - canvas.width;
+            if (camera.y > WORLD_HEIGHT - canvas.height) camera.y = WORLD_HEIGHT - canvas.height;
+
             broadcast({ x: player.x, y: player.y });
             draw();
             requestAnimationFrame(update);
@@ -170,8 +179,13 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y); // カメラ分だけ描写をずらす
+
             // 地面
-            ctx.fillStyle = "#222"; ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+            ctx.fillStyle = "#222"; ctx.fillRect(0, WORLD_HEIGHT - 10, WORLD_WIDTH, 10);
+            
             // ブロック
             Object.keys(blocks).forEach(pos => {
                 const [bx, by] = pos.split(',').map(Number);
@@ -179,9 +193,12 @@
                 ctx.fillRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
                 ctx.strokeStyle = "#555"; ctx.strokeRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
             });
-            // プレイヤー
+
+            // プレイヤーたち
             drawChar(player.x, player.y, player.color, player.name, player.msg, true);
             Object.values(others).forEach(p => drawChar(p.x, p.y, p.color, p.name, p.msg, false));
+
+            ctx.restore();
         }
 
         function drawChar(x, y, col, name, msg, isMe) {
@@ -192,7 +209,6 @@
             if (msg) { ctx.fillStyle = "#0f0"; ctx.fillText(msg, x + 15, y - 25); }
         }
 
-        // チャット・キー制御（省略なし）
         const chatInput = document.getElementById("chat-input");
         const chatLog = document.getElementById("chat-log");
         function addChatLog(t) { const d = document.createElement("div"); d.innerText = t; chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight; }
@@ -212,4 +228,3 @@
     </script>
 </body>
 </html>
-
