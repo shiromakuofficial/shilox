@@ -1,211 +1,155 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Shilox_Global_Multi_2D - Complete Edition</title>
+    <title>Shilox_Global_Multi_2D - Iron Dome</title>
     <style>
         body { text-align: center; background: #050505; color: #00bcd4; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
         canvas { background: #111; display: block; margin: 0 auto; border: 5px solid #222; box-shadow: 0 0 30px rgba(0, 188, 212, 0.5); cursor: crosshair; }
-        .info { background: rgba(0,0,0,0.95); padding: 15px; position: fixed; top: 0; left: 0; text-align: left; font-size: 11px; z-index: 10; border: 2px solid #ff4081; border-radius: 0 0 12px 0; }
-        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .info { background: rgba(0,0,0,0.95); padding: 15px; position: fixed; top: 0; left: 0; text-align: left; font-size: 12px; z-index: 10; border: 2px solid #ff4081; border-radius: 0 0 12px 0; }
         #chat-box { position: fixed; bottom: 10px; left: 10px; width: 320px; height: 180px; background: rgba(0,0,0,0.9); border: 2px solid #00bcd4; display: flex; flex-direction: column; border-radius: 8px; }
-        #chat-log { flex-grow: 1; overflow-y: auto; padding: 5px; font-size: 11px; color: #eee; text-align: left; }
-        #chat-input { background: #000; border: none; border-top: 1px solid #00bcd4; color: #fff; padding: 10px; outline: none; }
-        .warning { color: #ff4081; font-weight: bold; }
-        input[type="text"] { padding: 10px; width: 200px; border-radius: 4px; border: 1px solid #00bcd4; background: #111; color: white; }
-        button { padding: 10px 20px; background: #00bcd4; border: none; cursor: pointer; font-weight: bold; margin-top: 10px; border-radius: 4px; }
+        #chat-log { flex-grow: 1; overflow-y: auto; padding: 5px; font-size: 11px; color: #eee; }
+        #chat-input { background: #000; border: none; border-top: 1px solid #00bcd4; color: #fff; padding: 8px; outline: none; }
+        .warning-msg { color: #ff4081; font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-    <div id="login-screen">
-        <h1 style="color: #00bcd4; letter-spacing: 5px;">SHILOX METAVERSE</h1>
-        <p>名前を入力して入室してください</p>
-        <input type="text" id="user-name-input" placeholder="Name..." maxlength="10">
-        <button onclick="login()">START MULTIVERSE</button>
-    </div>
-
     <div class="info">
-        <div style="font-weight: bold; color: #ff4081; margin-bottom: 5px;">🛡️ SECURITY: IRON DOME ACTIVE</div>
+        <div style="font-weight: bold; color: #ff4081; margin-bottom: 5px;">⚠️ SECURITY LEVEL: MAX</div>
         <div>USER: <span id="display-name" style="color: #fff;">...</span></div>
-        <div style="margin-top: 5px; border-top: 1px solid #333; padding-top: 5px;">
-            [WASD/Space] 移動・ジャンプ<br>
-            [左クリック] ブロック配置<br>
-            [右クリック] ブロック削除<br>
-            [Enter] チャット開始
-        </div>
-        <div class="warning" style="margin-top: 5px;">⚠️ 個人情報の交換は厳禁</div>
+        <div class="warning-msg">個人情報・外部SNS誘導は即刻規制</div>
     </div>
 
     <canvas id="gameCanvas" width="800" height="400"></canvas>
 
     <div id="chat-box">
         <div id="chat-log"></div>
-        <input type="text" id="chat-input" placeholder="安全な発言を..." maxlength="30">
+        <input type="text" id="chat-input" placeholder="安全な言葉を選んでください" maxlength="30">
     </div>
 
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="./peerjs.min.js"></script>
     <script>
-        // --- 🛡️ 鉄壁の検閲設定 ---
-        const NG_WORDS = ["死ね", "殺す", "バカ", "住所", "会お", "LINE", "ライン", "番号", "歳", "性", "場所", "http", "www", ".com", ".jp", "じゅうしょ", "あお"];
-        let lastSpeechTime = 0;
+        // --- 🛡️ 超強化フィルタリングエンジン ---
+        const NG_WORDS = ["死ね", "殺す", "バカ", "住所", "会お", "LINE", "ライン", "番号", "歳", "性", "エッチ", "場所", "http", "www", ".com", ".jp", ".net", "じゅうしょ", "あお", "らいん", "でんわ"];
+        
+        let lastSpeechTime = 0; // クールタイム管理
 
         function getSafeText(text) {
-            // 空白や記号を詰めて判定する正規表現
+            // 1. スペースや記号を抜いて判定（「L I N E」対策）
             let normalized = text.replace(/[\s　.,/_ー-]/g, "");
+            
             let isSafe = true;
             NG_WORDS.forEach(word => {
-                if (normalized.includes(word) || text.includes(word)) isSafe = false;
+                if (normalized.includes(word) || text.includes(word)) {
+                    isSafe = false;
+                }
             });
-            return isSafe ? text : "【不適切な表現が含まれていたため検閲されました】";
+
+            if (!isSafe) {
+                return "【不適切な表現が含まれていたため検閲されました】";
+            }
+            return text;
         }
 
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const GRID_SIZE = 40;
-
-        let myName = "";
-        let peer;
-        const player = { x: 400, y: 300, w: 30, h: 30, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false, msg: "", name: "" };
+        let myName = localStorage.getItem("shilox_name") || "Guest" + Math.floor(Math.random()*1000);
+        
+        // プレイヤー初期設定
+        const player = { x: 400, y: 300, color: `hsl(${Math.random()*360}, 70%, 50%)`, dy: 0, isJumping: false, msg: "", name: myName };
         const others = {}; 
         const connections = {}; 
         const keys = {};
         let blocks = {};
 
-        function login() {
-            const input = document.getElementById("user-name-input").value.trim();
-            if (!input) return;
-            const safeName = getSafeText(input);
-            if (safeName.includes("【")) { alert("不適切な名前です"); return; }
-            myName = safeName;
-            player.name = myName;
-            document.getElementById("login-screen").style.display = "none";
-            initNetwork();
-        }
-
-        function initNetwork() {
-            // 簡易的なルームID（0-9のどれかにランダム接続）
-            const roomId = `shilox-meta-room-${Math.floor(Math.random()*5)}`;
-            peer = new Peer(roomId + "-" + Math.floor(Math.random()*1000));
-
-            peer.on('open', (id) => {
-                document.getElementById("display-name").innerText = myName;
-                addChatLog("[System] 防衛システム、オンライン。");
-                // 同一プレフィックスの他のピアに接続試行（デモ用簡易版）
-                // 本来はシグナリングサーバで管理するのが望ましい
-            });
-
-            peer.on('connection', (conn) => setupConnection(conn));
-            update(); // ループ開始
-        }
+        // ピア接続（ルーム管理は前と同じ）
+        const peer = new Peer(`shilox-max-sec-${Math.floor(Math.random()*10)}`);
+        peer.on('open', (id) => {
+            document.getElementById("display-name").innerText = myName;
+            addChatLog("[System] 防衛システム起動。安全な会話を心がけてください。");
+        });
+        peer.on('connection', (conn) => setupConnection(conn));
 
         function setupConnection(conn) {
             conn.on('data', (data) => {
                 if (data.type === 'chat') {
-                    const safe = getSafeText(data.msg);
-                    addChatLog(`${data.name}: ${safe}`);
-                    if (others[conn.peer]) others[conn.peer].msg = safe;
-                } else if (data.type === 'sync') {
-                    others[conn.peer] = { x: data.x, y: data.y, color: data.color, name: data.name, msg: data.msg };
-                    if (data.blocks) Object.assign(blocks, data.blocks);
-                } else if (data.type === 'block') {
-                    if (data.action === 'add') blocks[data.pos] = data.color;
-                    else delete blocks[data.pos];
+                    // 受信側でもう一度検閲（万が一、送信側が改造されてても防ぐ）
+                    const safeMsg = getSafeText(data.msg);
+                    addChatLog(`${data.name || '??? '}: ${safeMsg}`);
+                    if (others[conn.peer]) others[conn.peer].msg = safeMsg;
+                } else if (data.type === 'move') {
+                    if (!others[conn.peer]) others[conn.peer] = { name: data.name, color: data.color };
+                    others[conn.peer].x = data.x; others[conn.peer].y = data.y;
                 }
             });
-            connections[conn.peer] = conn;
         }
 
-        // --- 🧱 建築システム ---
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const gx = Math.floor((e.clientX - rect.left) / GRID_SIZE) * GRID_SIZE;
-            const gy = Math.floor((e.clientY - rect.top) / GRID_SIZE) * GRID_SIZE;
-            const pos = `${gx},${gy}`;
+        // --- 📨 送信処理の強化 ---
+        const chatInput = document.getElementById("chat-input");
+        chatInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && chatInput.value !== "") {
+                const now = Date.now();
+                // 3秒のクールタイム（連投禁止）
+                if (now - lastSpeechTime < 3000) {
+                    addChatLog("[System] 連投制限中や！ちょっと落ち着けｗ");
+                    return;
+                }
 
-            if (e.button === 0 && !e.shiftKey) {
-                blocks[pos] = "#444";
-                broadcast({ type: 'block', action: 'add', pos: pos, color: "#444" });
-            } else {
-                delete blocks[pos];
-                broadcast({ type: 'block', action: 'remove', pos: pos });
+                const rawMsg = chatInput.value;
+                const safeMsg = getSafeText(rawMsg);
+                
+                addChatLog(`Me: ${safeMsg}`);
+                player.msg = safeMsg;
+                lastSpeechTime = now;
+
+                Object.values(connections).forEach(c => {
+                    if (c.open) c.send({ type: 'chat', msg: safeMsg, name: myName });
+                });
+                
+                chatInput.value = "";
+                chatInput.blur();
             }
         });
-        canvas.oncontextmenu = (e) => e.preventDefault();
 
-        function broadcast(data) {
-            Object.values(connections).forEach(c => { if (c.open) c.send(data); });
-        }
-
-        // --- 🏃 更新＆描画 ---
+        // 描画・更新ループ（基本部分はニキのコードを継承）
         function update() {
             if (keys["ArrowLeft"] || keys["KeyA"]) player.x -= 5;
             if (keys["ArrowRight"] || keys["KeyD"]) player.x += 5;
             if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) && !player.isJumping) { player.dy = -10; player.isJumping = true; }
-            
             player.dy += 0.5; player.y += player.dy;
-
-            // 地面当たり判定
             if (player.y > canvas.height - 40) { player.y = canvas.height - 40; player.dy = 0; player.isJumping = false; }
-
-            // ブロック当たり判定
-            Object.keys(blocks).forEach(pos => {
-                const [bx, by] = pos.split(',').map(Number);
-                if (player.x + 25 > bx && player.x + 5 < bx + GRID_SIZE && player.y + 30 > by && player.y + 30 < by + 10 && player.dy >= 0) {
-                    player.y = by - 30; player.dy = 0; player.isJumping = false;
-                }
+            
+            Object.values(connections).forEach(c => {
+                if (c.open) c.send({ type: 'move', x: player.x, y: player.y, name: myName, color: player.color });
             });
 
-            broadcast({ type: 'sync', x: player.x, y: player.y, color: player.color, name: player.name, msg: player.msg });
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, 30, 30);
+            ctx.fillStyle = "#fff"; ctx.fillText(player.name, player.x + 15, player.y - 5);
+            if (player.msg) ctx.fillText(player.msg, player.x + 15, player.y - 20);
 
-            draw();
+            Object.values(others).forEach(p => {
+                ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 30, 30);
+                ctx.fillStyle = "#fff"; ctx.fillText(p.name, p.x + 15, p.y - 5);
+                if (p.msg) ctx.fillText(p.msg, p.x + 15, p.y - 20);
+            });
             requestAnimationFrame(update);
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // 地面
-            ctx.fillStyle = "#222"; ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
-            // ブロック
-            Object.keys(blocks).forEach(pos => {
-                const [bx, by] = pos.split(',').map(Number);
-                ctx.fillStyle = "#444"; ctx.fillRect(bx, by, GRID_SIZE-2, GRID_SIZE-2);
-            });
-            // プレイヤー描画
-            drawChar(player.x, player.y, player.color, player.name, player.msg, true);
-            Object.values(others).forEach(p => drawChar(p.x, p.y, p.color, p.name, p.msg, false));
+        function addChatLog(t) {
+            const d = document.createElement("div");
+            d.innerText = t;
+            const log = document.getElementById("chat-log");
+            log.appendChild(d);
+            log.scrollTop = log.scrollHeight;
         }
-
-        function drawChar(x, y, col, name, msg, isMe) {
-            ctx.fillStyle = col; ctx.fillRect(x, y, 30, 30);
-            if (isMe) { ctx.strokeStyle = "#00bcd4"; ctx.lineWidth = 2; ctx.strokeRect(x, y, 30, 30); }
-            ctx.fillStyle = "#fff"; ctx.font = "bold 10px Arial"; ctx.textAlign = "center";
-            ctx.fillText(name, x + 15, y - 5);
-            if (msg) {
-                ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(x - 20, y - 30, 70, 15);
-                ctx.fillStyle = "#0f0"; ctx.fillText(msg, x + 15, y - 19);
-            }
-        }
-
-        const chatInput = document.getElementById("chat-input");
-        const chatLog = document.getElementById("chat-log");
-        function addChatLog(t) { const d = document.createElement("div"); d.innerText = t; chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight; }
-
-        chatInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" && chatInput.value !== "") {
-                const now = Date.now();
-                if (now - lastSpeechTime < 3000) { addChatLog("[System] 3秒待ってから発言してや！"); return; }
-                const safe = getSafeText(chatInput.value);
-                addChatLog(`Me: ${safe}`);
-                player.msg = safe;
-                lastSpeechTime = now;
-                broadcast({ type: 'chat', msg: safe, name: myName });
-                chatInput.value = ""; chatInput.blur();
-            }
-        });
 
         window.addEventListener("keydown", (e) => { if (document.activeElement !== chatInput) keys[e.code] = true; });
         window.addEventListener("keyup", (e) => keys[e.code] = false);
+        update();
     </script>
 </body>
 </html>
