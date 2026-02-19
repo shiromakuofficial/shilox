@@ -2,65 +2,62 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Shilox_Global_Multi_2D - Wide World</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shilox_Global_Multi_2D - Mobile Ready</title>
     <link rel="icon" href="data:,">
     <style>
-        body { text-align: center; background: #0a0a0a; color: #00bcd4; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
-        canvas { background: #111; display: block; margin: 0 auto; border: 5px solid #222; box-shadow: 0 0 20px rgba(0, 188, 212, 0.3); cursor: crosshair; }
-        .info { background: rgba(0,0,0,0.9); padding: 12px; position: fixed; top: 0; left: 0; text-align: left; font-size: 12px; z-index: 10; border: 1px solid #00bcd4; border-radius: 0 0 8px 0; }
+        body { text-align: center; background: #0a0a0a; color: #00bcd4; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; touch-action: none; }
+        canvas { background: #111; display: block; margin: 0 auto; border: 5px solid #222; box-shadow: 0 0 20px rgba(0, 188, 212, 0.3); cursor: crosshair; max-width: 100%; height: auto; }
+        .info { background: rgba(0,0,0,0.9); padding: 8px; position: fixed; top: 0; left: 0; text-align: left; font-size: 10px; z-index: 10; border: 1px solid #00bcd4; border-radius: 0 0 8px 0; }
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #chat-box { position: fixed; bottom: 10px; left: 10px; width: 300px; height: 150px; background: rgba(0,0,0,0.8); color: white; text-align: left; padding: 10px; border-radius: 5px; font-size: 12px; border: 1px solid #00bcd4; display: flex; flex-direction: column; }
-        #chat-log { flex-grow: 1; overflow-y: auto; margin-bottom: 5px; }
-        #chat-input { background: #111; border: 1px solid #00bcd4; color: #fff; padding: 5px; outline: none; }
+        #chat-box { position: fixed; bottom: 80px; left: 10px; width: 200px; height: 100px; background: rgba(0,0,0,0.8); color: white; text-align: left; padding: 5px; border-radius: 5px; font-size: 10px; border: 1px solid #00bcd4; display: flex; flex-direction: column; pointer-events: none; }
+        #chat-log { flex-grow: 1; overflow-y: auto; }
+        #chat-input { background: #111; border: 1px solid #00bcd4; color: #fff; padding: 5px; outline: none; pointer-events: auto; }
         input, button { padding: 8px; font-family: inherit; margin: 2px; border-radius: 4px; }
         button { cursor: pointer; background: #00bcd4; border: none; font-weight: bold; color: #000; }
-        button:hover { background: #fff; }
-        .controls-hint { margin-top: 5px; color: #aaa; font-size: 10px; }
+
+        /* 📱 スマホ用コントローラー */
+        .mobile-controls { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 50; pointer-events: none; }
+        .joy-btn { width: 60px; height: 60px; background: rgba(0, 188, 212, 0.3); border: 2px solid #00bcd4; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #fff; font-weight: bold; pointer-events: auto; user-select: none; -webkit-user-select: none; }
+        .joy-btn:active { background: rgba(255, 255, 255, 0.5); }
+        .left-controls { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
         <h1 style="color: #00bcd4; letter-spacing: 3px;">SHILOX METAVERSE</h1>
-        <p>名前を入力して接続してください</p>
-        <input type="text" id="user-name-input" placeholder="Your Name..." maxlength="10">
-        <button onclick="login()">ENTER WORLD</button>
+        <input type="text" id="user-name-input" placeholder="Name..." maxlength="10">
+        <button onclick="login()">ENTER</button>
     </div>
 
     <div class="info">
-        <div>SERVER: <span style="background:#ff4081; color:#fff; padding:2px 5px;">Room 1</span></div>
         <div>USER: <span id="display-name" style="color: #fff;">...</span></div>
-        <div onclick="copyInviteUrl()" style="margin-top:8px; border:1px dashed #ffeb3b; padding:8px; cursor:pointer; color:#ffeb3b;">🔗 招待URLをコピー</div>
-        <div class="controls-hint">
-            [操作] WASD:移動 / Space:跳躍<br>
-            左クリック:ブロック配置 / 右クリック:削除
-        </div>
-        <div style="font-size: 9px; margin-top: 5px; color: #555;">ID: <span id="my-id">...</span></div>
+        <div onclick="copyInviteUrl()" style="color:#ffeb3b; cursor:pointer;">🔗 URL COPY</div>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="450"></canvas>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
 
     <div id="chat-box">
         <div id="chat-log"></div>
-        <input type="text" id="chat-input" placeholder="Enterで送信" maxlength="30">
+        <input type="text" id="chat-input" placeholder="Chat..." maxlength="30">
+    </div>
+
+    <div class="mobile-controls">
+        <div class="left-controls">
+            <div class="joy-btn" id="btn-left">◀</div>
+            <div class="joy-btn" id="btn-right">▶</div>
+        </div>
+        <div class="joy-btn" id="btn-up">▲</div>
     </div>
 
     <script src="./peerjs.min.js"></script>
     <script>
-const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm", "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう", "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール", "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h", "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生", "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ", "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"];
-        function filterText(text) {
-            let f = text;
-            NG_WORDS.forEach(w => f = f.replace(new RegExp(w, "g"), "*".repeat(w.length)));
-            return f;
-        }
-
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const GRID_SIZE = 40;
-
-        // --- 🌍 ステージ設定 ---
-        const WORLD_WIDTH = 3200;  // 横幅
-        const WORLD_HEIGHT = 1200; // 縦幅
+        const WORLD_WIDTH = 3200;
+        const WORLD_HEIGHT = 1200;
         const camera = { x: 0, y: 0 };
 
         let myName = localStorage.getItem("shilox_name") || "";
@@ -71,11 +68,10 @@ const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス",
         let blocks = {};
         let peer;
 
-        // --- 🔑 ログイン・接続処理 ---
         function login() {
             const input = document.getElementById("user-name-input").value;
             if (input) {
-                myName = filterText(input);
+                myName = input;
                 localStorage.setItem("shilox_name", myName);
                 player.name = myName; 
                 document.getElementById("login-screen").style.display = "none";
@@ -85,13 +81,11 @@ const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス",
 
         function startShiloxMetaverse(attemptIdx) {
             peer = new Peer(`shilox-room-1-${attemptIdx}`);
-            peer.on('open', (id) => {
-                document.getElementById('my-id').innerText = id;
+            peer.on('open', id => {
                 document.getElementById("display-name").innerText = myName;
                 for (let i = 0; i < 10; i++) { if (i !== attemptIdx) setupConnection(peer.connect(`shilox-room-1-${i}`)); }
             });
-            peer.on('error', (err) => { if (err.type === 'unavailable-id') { peer.destroy(); startShiloxMetaverse(attemptIdx + 1); } });
-            peer.on('connection', (conn) => setupConnection(conn));
+            peer.on('connection', conn => setupConnection(conn));
         }
 
         function setupConnection(conn) {
@@ -99,14 +93,13 @@ const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス",
                 connections[conn.peer] = conn;
                 conn.send({ type: 'init', name: player.name, color: player.color, blocks: blocks });
             });
-            conn.on('data', (data) => {
+            conn.on('data', data => {
                 if (data.type === 'init') {
-                    others[conn.peer] = { x: 400, y: 300, color: data.color, name: filterText(data.name), msg: "" };
+                    others[conn.peer] = { x: 400, y: 300, color: data.color, name: data.name, msg: "" };
                     Object.assign(blocks, data.blocks);
                 } else if (data.type === 'chat') {
-                    const m = filterText(data.msg);
-                    addChatLog(`${others[conn.peer]?.name || '???'}: ${m}`);
-                    if (others[conn.peer]) others[conn.peer].msg = m;
+                    addChatLog(`${others[conn.peer]?.name || '???'}: ${data.msg}`);
+                    if (others[conn.peer]) others[conn.peer].msg = data.msg;
                 } else if (data.type === 'block') {
                     if (data.action === 'add') blocks[data.pos] = data.color;
                     else delete blocks[data.pos];
@@ -114,58 +107,68 @@ const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス",
                     if (others[conn.peer]) { others[conn.peer].x = data.x; others[conn.peer].y = data.y; }
                 }
             });
-            conn.on('close', () => { delete others[conn.peer]; delete connections[conn.peer]; });
         }
 
-        // --- 🧱 ブロック操作 ---
-        canvas.addEventListener('mousedown', (e) => {
+        function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
+
+        // --- 🧱 タッチ/マウスでのブロック配置 ---
+        const handleAction = (clientX, clientY, isAdd) => {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left + camera.x;
-            const mouseY = e.clientY - rect.top + camera.y;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mouseX = (clientX - rect.left) * scaleX + camera.x;
+            const mouseY = (clientY - rect.top) * scaleY + camera.y;
             const gridX = Math.floor(mouseX / GRID_SIZE) * GRID_SIZE;
             const gridY = Math.floor(mouseY / GRID_SIZE) * GRID_SIZE;
             const pos = `${gridX},${gridY}`;
 
-            if (e.button === 0 && !e.shiftKey) { 
-                const color = "#444";
-                blocks[pos] = color;
-                broadcast({ type: 'block', action: 'add', pos: pos, color: color });
-            } else { 
+            if (isAdd) {
+                blocks[pos] = "#444";
+                broadcast({ type: 'block', action: 'add', pos: pos, color: "#444" });
+            } else {
                 delete blocks[pos];
                 broadcast({ type: 'block', action: 'remove', pos: pos });
             }
+        };
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) handleAction(e.touches[0].clientX, e.touches[0].clientY, true);
         });
-        canvas.oncontextmenu = (e) => e.preventDefault();
 
-        function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
+        canvas.addEventListener('mousedown', (e) => {
+            handleAction(e.clientX, e.clientY, e.button === 0 && !e.shiftKey);
+        });
 
-        // --- 🏃 更新・描画 ---
+        // --- 🏃 スマホ操作用イベント ---
+        const touchKeys = { left: false, right: false, up: false };
+        const setupBtn = (id, key) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); touchKeys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); touchKeys[key] = false; });
+            // PCでの動作確認用
+            el.addEventListener('mousedown', () => touchKeys[key] = true);
+            el.addEventListener('mouseup', () => touchKeys[key] = false);
+        };
+        setupBtn('btn-left', 'left'); setupBtn('btn-right', 'right'); setupBtn('btn-up', 'up');
+
         function update() {
-            if (keys["ArrowLeft"] || keys["KeyA"]) player.x -= 5;
-            if (keys["ArrowRight"] || keys["KeyD"]) player.x += 5;
-            if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) && !player.isJumping) { player.dy = -10; player.isJumping = true; }
+            if (keys["ArrowLeft"] || keys["KeyA"] || touchKeys.left) player.x -= 5;
+            if (keys["ArrowRight"] || keys["KeyD"] || touchKeys.right) player.x += 5;
+            if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"] || touchKeys.up) && !player.isJumping) { player.dy = -10; player.isJumping = true; }
             
-            player.dy += 0.5;
-            player.y += player.dy;
-
+            player.dy += 0.5; player.y += player.dy;
             if (player.y > WORLD_HEIGHT - 40) { player.y = WORLD_HEIGHT - 40; player.dy = 0; player.isJumping = false; }
-            if (player.x < 0) player.x = 0;
-            if (player.x > WORLD_WIDTH - 30) player.x = WORLD_WIDTH - 30;
-
+            
             Object.keys(blocks).forEach(pos => {
                 const [bx, by] = pos.split(',').map(Number);
-                if (player.x + 25 > bx && player.x + 5 < bx + GRID_SIZE &&
-                    player.y + 30 > by && player.y + 30 < by + 15 && player.dy >= 0) {
+                if (player.x + 25 > bx && player.x + 5 < bx + GRID_SIZE && player.y + 30 > by && player.y + 30 < by + 15 && player.dy >= 0) {
                     player.y = by - 30; player.dy = 0; player.isJumping = false;
                 }
             });
 
-            camera.x = player.x - canvas.width / 2;
-            camera.y = player.y - canvas.height / 2;
-            if (camera.x < 0) camera.x = 0;
-            if (camera.y < 0) camera.y = 0;
-            if (camera.x > WORLD_WIDTH - canvas.width) camera.x = WORLD_WIDTH - canvas.width;
-            if (camera.y > WORLD_HEIGHT - canvas.height) camera.y = WORLD_HEIGHT - canvas.height;
+            camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
+            camera.x = Math.max(0, Math.min(camera.x, WORLD_WIDTH - canvas.width));
+            camera.y = Math.max(0, Math.min(camera.y, WORLD_HEIGHT - canvas.height));
 
             broadcast({ x: player.x, y: player.y });
             draw();
@@ -179,9 +182,7 @@ const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス",
             ctx.fillStyle = "#222"; ctx.fillRect(0, WORLD_HEIGHT - 10, WORLD_WIDTH, 10);
             Object.keys(blocks).forEach(pos => {
                 const [bx, by] = pos.split(',').map(Number);
-                ctx.fillStyle = blocks[pos];
-                ctx.fillRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
-                ctx.strokeStyle = "#555"; ctx.strokeRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
+                ctx.fillStyle = blocks[pos]; ctx.fillRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
             });
             drawChar(player.x, player.y, player.color, player.name, player.msg, true);
             Object.values(others).forEach(p => drawChar(p.x, p.y, p.color, p.name, p.msg, false));
@@ -190,31 +191,27 @@ const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス",
 
         function drawChar(x, y, col, name, msg, isMe) {
             ctx.fillStyle = col; ctx.fillRect(x, y, 30, 30);
-            if (isMe) { ctx.strokeStyle = "#00bcd4"; ctx.lineWidth = 2; ctx.strokeRect(x, y, 30, 30); }
             ctx.fillStyle = "white"; ctx.font = "bold 10px Arial"; ctx.textAlign = "center";
             ctx.fillText(name, x + 15, y - 10);
             if (msg) { ctx.fillStyle = "#0f0"; ctx.fillText(msg, x + 15, y - 25); }
         }
 
-        // --- ⌨️ チャット・入力 ---
         const chatInput = document.getElementById("chat-input");
         const chatLog = document.getElementById("chat-log");
         function addChatLog(t) { const d = document.createElement("div"); d.innerText = t; chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight; }
         chatInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter" && chatInput.value !== "") {
-                const m = filterText(chatInput.value);
-                addChatLog(`Me: ${m}`); player.msg = m;
-                broadcast({ type: 'chat', msg: m });
+                addChatLog(`Me: ${chatInput.value}`); player.msg = chatInput.value;
+                broadcast({ type: 'chat', msg: chatInput.value });
                 chatInput.value = ""; chatInput.blur();
             }
         });
         window.addEventListener("keydown", (e) => { if (document.activeElement !== chatInput) keys[e.code] = true; });
         window.addEventListener("keyup", (e) => keys[e.code] = false);
         window.onload = () => { if (myName) { document.getElementById("login-screen").style.display = "none"; startShiloxMetaverse(0); } };
-        function copyInviteUrl() { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?join=${peer.id}`).then(() => alert("URLコピーしたで！")); }
+        function copyInviteUrl() { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?join=${peer.id}`).then(() => alert("URL COPY!")); }
 
         update();
     </script>
 </body>
 </html>
-
