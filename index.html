@@ -48,7 +48,13 @@
 
     <script src="./peerjs.min.js"></script>
     <script>
-        const NG_WORDS = ["死ね", "殺す", "バカ", "年齢", "住所"]; // 簡略化
+        const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm",
+            "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう",
+            "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール",
+            "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h",
+            "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生",
+            "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ",
+            "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"]; // 簡略化
         function filterText(text) {
             let f = text;
             NG_WORDS.forEach(w => f = f.replace(new RegExp(w, "g"), "*".repeat(w.length)));
@@ -206,3 +212,4 @@
     </script>
 </body>
 </html>
+
