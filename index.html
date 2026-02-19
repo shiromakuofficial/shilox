@@ -47,7 +47,7 @@
 
     <script src="./peerjs.min.js"></script>
     <script>
-        const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm", "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう", "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール", "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h", "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生", "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ", "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"];
+const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm", "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう", "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール", "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h", "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生", "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ", "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"];
         function filterText(text) {
             let f = text;
             NG_WORDS.forEach(w => f = f.replace(new RegExp(w, "g"), "*".repeat(w.length)));
@@ -59,8 +59,8 @@
         const GRID_SIZE = 40;
 
         // --- 🌍 ステージ設定 ---
-        const WORLD_WIDTH = 3200;  // 横幅4倍
-        const WORLD_HEIGHT = 1200; // 縦幅3倍
+        const WORLD_WIDTH = 3200;  // 横幅
+        const WORLD_HEIGHT = 1200; // 縦幅
         const camera = { x: 0, y: 0 };
 
         let myName = localStorage.getItem("shilox_name") || "";
@@ -69,9 +69,9 @@
         const connections = {}; 
         const keys = {};
         let blocks = {};
+        let peer;
 
-        window.onload = () => { if (myName) { document.getElementById("login-screen").style.display = "none"; startShiloxMetaverse(0); } };
-
+        // --- 🔑 ログイン・接続処理 ---
         function login() {
             const input = document.getElementById("user-name-input").value;
             if (input) {
@@ -117,9 +117,9 @@
             conn.on('close', () => { delete others[conn.peer]; delete connections[conn.peer]; });
         }
 
+        // --- 🧱 ブロック操作 ---
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            // カメラ位置を考慮してブロックを配置
             const mouseX = e.clientX - rect.left + camera.x;
             const mouseY = e.clientY - rect.top + camera.y;
             const gridX = Math.floor(mouseX / GRID_SIZE) * GRID_SIZE;
@@ -139,6 +139,7 @@
 
         function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
 
+        // --- 🏃 更新・描画 ---
         function update() {
             if (keys["ArrowLeft"] || keys["KeyA"]) player.x -= 5;
             if (keys["ArrowRight"] || keys["KeyD"]) player.x += 5;
@@ -147,14 +148,10 @@
             player.dy += 0.5;
             player.y += player.dy;
 
-            // 地面判定（世界の底）
             if (player.y > WORLD_HEIGHT - 40) { player.y = WORLD_HEIGHT - 40; player.dy = 0; player.isJumping = false; }
-            
-            // 世界の境界制限
             if (player.x < 0) player.x = 0;
             if (player.x > WORLD_WIDTH - 30) player.x = WORLD_WIDTH - 30;
 
-            // ブロック当たり判定
             Object.keys(blocks).forEach(pos => {
                 const [bx, by] = pos.split(',').map(Number);
                 if (player.x + 25 > bx && player.x + 5 < bx + GRID_SIZE &&
@@ -163,10 +160,8 @@
                 }
             });
 
-            // --- 🎥 カメラの更新 ---
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
-            // カメラが世界の端を超えないように制限
             if (camera.x < 0) camera.x = 0;
             if (camera.y < 0) camera.y = 0;
             if (camera.x > WORLD_WIDTH - canvas.width) camera.x = WORLD_WIDTH - canvas.width;
@@ -179,25 +174,17 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             ctx.save();
-            ctx.translate(-camera.x, -camera.y); // カメラ分だけ描写をずらす
-
-            // 地面
+            ctx.translate(-camera.x, -camera.y);
             ctx.fillStyle = "#222"; ctx.fillRect(0, WORLD_HEIGHT - 10, WORLD_WIDTH, 10);
-            
-            // ブロック
             Object.keys(blocks).forEach(pos => {
                 const [bx, by] = pos.split(',').map(Number);
                 ctx.fillStyle = blocks[pos];
                 ctx.fillRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
                 ctx.strokeStyle = "#555"; ctx.strokeRect(bx, by, GRID_SIZE - 2, GRID_SIZE - 2);
             });
-
-            // プレイヤーたち
             drawChar(player.x, player.y, player.color, player.name, player.msg, true);
             Object.values(others).forEach(p => drawChar(p.x, p.y, p.color, p.name, p.msg, false));
-
             ctx.restore();
         }
 
@@ -209,6 +196,7 @@
             if (msg) { ctx.fillStyle = "#0f0"; ctx.fillText(msg, x + 15, y - 25); }
         }
 
+        // --- ⌨️ チャット・入力 ---
         const chatInput = document.getElementById("chat-input");
         const chatLog = document.getElementById("chat-log");
         function addChatLog(t) { const d = document.createElement("div"); d.innerText = t; chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight; }
@@ -222,9 +210,11 @@
         });
         window.addEventListener("keydown", (e) => { if (document.activeElement !== chatInput) keys[e.code] = true; });
         window.addEventListener("keyup", (e) => keys[e.code] = false);
+        window.onload = () => { if (myName) { document.getElementById("login-screen").style.display = "none"; startShiloxMetaverse(0); } };
         function copyInviteUrl() { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?join=${peer.id}`).then(() => alert("URLコピーしたで！")); }
 
         update();
     </script>
 </body>
 </html>
+
