@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Shilox_Global_Multi_2D - Protected Mobile</title>
+    <title>Shilox</title>
     <link rel="icon" href="data:,">
     <style>
         body { text-align: center; background: #0a0a0a; color: #00bcd4; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; touch-action: none; }
@@ -31,8 +31,8 @@
 
     <div class="info">
         <div>USER: <span id="display-name" style="color: #fff;">...</span></div>
-        <div onclick="copyInviteUrl()" style="color:#ffeb3b; cursor:pointer; margin-top:5px;">🔗 招待URLコピー</div>
-        <div style="font-size: 9px; color: #555; margin-top: 5px;">部屋に誰もいなくなるとリセットされるで</div>
+        <div onclick="copyInviteUrl()" style="color:#ffeb3b; cursor:pointer; margin-top:5px;">招待URLコピー</div>
+        <div style="font-size: 9px; color: #555; margin-top: 5px;">部屋に誰もいなくなるとリセットされます</div>
     </div>
 
     <canvas id="gameCanvas" width="800" height="400"></canvas>
@@ -219,17 +219,18 @@
         window.addEventListener("beforeunload", () => {
             if (Object.keys(connections).length === 0) {
                 blocks = {}; // メモリ上のブロック情報をリセット
-                // P2Pなので自分が最後の一人なら、このデータは誰にも引き継がれず消滅するで
+                // P2Pなので自分が最後の一人なら、このデータは誰にも引き継がれず消滅する
             }
         });
 
         window.onload = () => { if (myName) { document.getElementById("login-screen").style.display = "none"; startShiloxMetaverse(0); } };
         function copyInviteUrl() { 
             const url = `${window.location.origin}${window.location.pathname}?join=${peer.id}`;
-            navigator.clipboard.writeText(url).then(() => alert("URLコピー成功！誰もいなくなるとリセットされるで！")); 
+            navigator.clipboard.writeText(url).then(() => alert("URLコピー成功！誰もいなくなるとリセットされます！")); 
         }
 
         update();
     </script>
 </body>
 </html>
+
