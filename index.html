@@ -32,6 +32,7 @@
     <div class="info">
         <div>USER: <span id="display-name" style="color: #fff;">...</span></div>
         <div onclick="copyInviteUrl()" style="color:#ffeb3b; cursor:pointer; margin-top:5px;">🔗 招待URLコピー</div>
+        <div style="font-size: 9px; color: #555; margin-top: 5px;">部屋に誰もいなくなるとリセットされるで</div>
     </div>
 
     <canvas id="gameCanvas" width="800" height="400"></canvas>
@@ -51,7 +52,6 @@
 
     <script src="./peerjs.min.js"></script>
     <script>
-        // --- 🛡️ 規制システム再搭載 ---
         const NG_WORDS = ["死ね", "殺す", "バカ", "うんこ", "ゴミ", "カス", "ks", "gm", "住所", "じゅうしょ", "どこ住み", "どこに住んでる", "家に来て", "会おう", "あおう", "連絡先", "LINE", "ライン", "カカオ", "電話", "番号", "メルアド", "メール", "出会い", "sex", "セックス", "fuck", "セフレ", "エッチ", "h", "年齢", "何歳", "ねんれい", "学生", "小学生", "中学生", "高校生", "場所", "ばしょ", "どこにいる", "どこいる", "公園", "駅", "コンビニ", "誘拐", "攫う", "連れ去る", "http", "https", ".com", ".jp"];
         function filterText(text) {
             let f = text;
@@ -120,7 +120,6 @@
 
         function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
 
-        // --- 🧱 ブロック配置 (規制なし、色のみ) ---
         const handleAction = (clientX, clientY, isAdd) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -144,7 +143,6 @@
         canvas.addEventListener('mousedown', e => handleAction(e.clientX, e.clientY, e.button === 0 && !e.shiftKey));
         canvas.oncontextmenu = e => e.preventDefault();
 
-        // --- 🕹️ スマホ操作 ---
         const touchKeys = { left: false, right: false, up: false };
         const setupBtn = (id, key) => {
             const el = document.getElementById(id);
@@ -216,8 +214,20 @@
         });
         window.addEventListener("keydown", e => { if (document.activeElement !== chatInput) keys[e.code] = true; });
         window.addEventListener("keyup", e => keys[e.code] = false);
+
+        // --- 🧹 退出時に自分しかいなければブロックをリセット ---
+        window.addEventListener("beforeunload", () => {
+            if (Object.keys(connections).length === 0) {
+                blocks = {}; // メモリ上のブロック情報をリセット
+                // P2Pなので自分が最後の一人なら、このデータは誰にも引き継がれず消滅するで
+            }
+        });
+
         window.onload = () => { if (myName) { document.getElementById("login-screen").style.display = "none"; startShiloxMetaverse(0); } };
-        function copyInviteUrl() { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?join=${peer.id}`).then(() => alert("URLコピー成功！")); }
+        function copyInviteUrl() { 
+            const url = `${window.location.origin}${window.location.pathname}?join=${peer.id}`;
+            navigator.clipboard.writeText(url).then(() => alert("URLコピー成功！誰もいなくなるとリセットされるで！")); 
+        }
 
         update();
     </script>
